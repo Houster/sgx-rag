@@ -6,7 +6,10 @@ Run: streamlit run app.py
 
 import json
 
+import gspread
 import streamlit as st
+from datetime import datetime, timezone
+from google.oauth2.service_account import Credentials
 
 from config import INDEX_DIR, DOC_TYPES, PRICE_TICKER
 from rag import RAGEngine
@@ -27,6 +30,166 @@ DOC_TYPE_LABELS = {
     "broker_report":    "Broker Report",
 }
 
+# ── Login CSS ─────────────────────────────────────────────────────────────────
+
+st.markdown("""
+<style>
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap');
+
+/* ── Login page ── */
+.login-wrap {
+    max-width: 440px; margin: 10vh auto 0 auto;
+    background: #0c1527; border: 1px solid #4a9eff;
+    border-radius: 4px; overflow: hidden;
+    box-shadow: 0 24px 64px rgba(0,0,0,0.7), 0 0 0 1px rgba(74,158,255,0.08);
+}
+.login-accent {
+    height: 3px;
+    background: linear-gradient(90deg, #1d4ed8 0%, #4a9eff 55%, #93c5fd 100%);
+}
+.login-header {
+    padding: 32px 40px 28px; border-bottom: 1px solid #1a2d50;
+    display: flex; align-items: center; gap: 18px;
+}
+.login-mark {
+    font-family: 'IBM Plex Mono', monospace; font-size: 34px;
+    color: #4a9eff; line-height: 1; flex-shrink: 0;
+}
+.login-brand-name {
+    font-family: 'IBM Plex Mono', monospace; font-size: 18px;
+    font-weight: 500; color: #e2e8f0; letter-spacing: 0.06em;
+}
+.login-brand-product {
+    font-family: 'IBM Plex Sans', sans-serif; font-size: 11px;
+    color: #4a9eff; letter-spacing: 0.14em; text-transform: uppercase; margin-top: 4px;
+}
+.login-form-area {
+    padding: 30px 40px 36px;
+}
+.login-access-label {
+    font-family: 'IBM Plex Mono', monospace; font-size: 10px;
+    color: #4a6fa5; letter-spacing: 0.22em; text-transform: uppercase;
+    margin-bottom: 22px;
+}
+.login-label {
+    font-family: 'IBM Plex Mono', monospace; font-size: 11px;
+    color: #7a93b8; letter-spacing: 0.12em; text-transform: uppercase;
+    margin-bottom: 6px;
+}
+.login-footer {
+    padding: 13px 40px; border-top: 1px solid #1a2d50; background: #07101e;
+}
+.login-footer-text {
+    font-family: 'IBM Plex Mono', monospace; font-size: 10px;
+    color: #233a5c; text-align: center; letter-spacing: 0.14em; text-transform: uppercase;
+}
+/* ── Login input + button overrides ── */
+[data-testid="stTextInput"] input {
+    background: #060c1a !important; border: 1px solid #1a2d50 !important;
+    border-radius: 3px !important; color: #e2e8f0 !important;
+    font-family: 'IBM Plex Sans', sans-serif !important; font-size: 14px !important;
+}
+[data-testid="stTextInput"] input:focus {
+    border-color: #4a9eff !important; box-shadow: 0 0 0 2px rgba(74,158,255,0.12) !important;
+}
+[data-testid="stFormSubmitButton"] button {
+    background: #1d4ed8 !important; border: none !important; color: #ffffff !important;
+    font-family: 'IBM Plex Mono', monospace !important; font-size: 12px !important;
+    letter-spacing: 0.14em !important; text-transform: uppercase !important;
+    border-radius: 3px !important; padding: 12px !important; transition: background 0.15s !important;
+}
+[data-testid="stFormSubmitButton"] button:hover { background: #2563eb !important; }
+[data-testid="stForm"] { border: none !important; padding: 0 !important; background: transparent !important; }
+.user-pill {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: #091422; border: 1px solid #1a3560;
+    border-radius: 20px; padding: 4px 12px 4px 8px;
+    font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #6aaeff;
+}
+.user-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: #4a9eff; display: inline-block;
+}
+</style>
+""", unsafe_allow_html=True)
+
+
+# ── Google Sheets logging ─────────────────────────────────────────────────────
+
+def save_to_google_sheets(name: str, email: str) -> bool:
+    try:
+        creds_dict = st.secrets["google_service_account"]
+        creds = Credentials.from_service_account_info(creds_dict, scopes=["https://www.googleapis.com/auth/spreadsheets"])
+        client = gspread.authorize(creds)
+        sheet_id = st.secrets["google_sheet_id"]
+        sheet = client.open_by_key(sheet_id).sheet1
+        timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+        sheet.append_row([name, email, timestamp])
+        return True
+    except Exception as e:
+        st.error(f"Failed to save signup: {e}")
+        return False
+
+
+def show_login():
+    st.markdown("""
+    <style>
+    [data-testid="stSidebar"] { display: none !important; }
+    [data-testid="collapsedControl"] { display: none !important; }
+    </style>
+    """, unsafe_allow_html=True)
+
+    st.markdown("""
+    <div class="login-wrap">
+        <div class="login-accent"></div>
+        <div class="login-header">
+            <div class="login-mark">◈</div>
+            <div>
+                <div class="login-brand-name">ORIK.AI</div>
+                <div class="login-brand-product">Keppel DC REIT Research</div>
+            </div>
+        </div>
+    """, unsafe_allow_html=True)
+
+    with st.form("login_form"):
+        st.markdown('<div class="login-label">Full Name</div>', unsafe_allow_html=True)
+        name = st.text_input(
+            "Name", placeholder="e.g. Sarah Chen",
+            label_visibility="collapsed"
+        )
+
+        st.markdown("<div style='height:14px'></div>", unsafe_allow_html=True)
+        st.markdown('<div class="login-label">Email</div>', unsafe_allow_html=True)
+        email = st.text_input(
+            "Email", placeholder="e.g. sarah@fundname.com",
+            label_visibility="collapsed"
+        )
+
+        st.markdown("<div style='height:22px'></div>", unsafe_allow_html=True)
+        submitted = st.form_submit_button(
+            "Request Access", use_container_width=True
+        )
+
+        if submitted:
+            name  = name.strip()
+            email = email.strip()
+            if not name:
+                st.error("Please enter your name.")
+            elif not email or "@" not in email:
+                st.error("Please enter a valid email address.")
+            else:
+                if save_to_google_sheets(name, email):
+                    st.session_state["user_name"]  = name
+                    st.session_state["user_email"] = email
+                    st.session_state["logged_in"]  = True
+                    st.rerun()
+
+    st.markdown(
+        '<div class="login-footer"><div class="login-footer-text">Confidential &nbsp;·&nbsp; ORIK.AI &nbsp;·&nbsp; Authorized Use Only</div></div>',
+        unsafe_allow_html=True
+    )
+
+
 # ── Session state ─────────────────────────────────────────────────────────────
 
 if "history" not in st.session_state:
@@ -34,9 +197,22 @@ if "history" not in st.session_state:
 if "pending_query" not in st.session_state:
     st.session_state["pending_query"] = None
 
+# ── Login gate ────────────────────────────────────────────────────────────────
+
+if not st.session_state.get("logged_in"):
+    show_login()
+    st.stop()
+
 # ── Sidebar ───────────────────────────────────────────────────────────────────
 
 with st.sidebar:
+    user_name = st.session_state.get("user_name", "")
+    st.markdown(
+        f'<div class="user-pill"><span class="user-dot"></span>{user_name}</div>',
+        unsafe_allow_html=True,
+    )
+    st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
+
     st.header("Corpus")
 
     index_ready = (INDEX_DIR / "faiss.index").exists()
@@ -110,6 +286,12 @@ with st.sidebar:
         if st.button(q, key=q, use_container_width=True):
             st.session_state["pending_query"] = q
             st.rerun()
+
+    st.divider()
+    if st.button("⎋  Sign out"):
+        for key in ["logged_in", "user_name", "user_email", "history", "pending_query"]:
+            st.session_state.pop(key, None)
+        st.rerun()
 
 
 # ── RAG engine (cached across reruns) ────────────────────────────────────────
