@@ -46,6 +46,7 @@ ANSWER GUIDELINES:
 - For broker opinions, write: "Goldman Sachs [3] forecast..." not just "[3] forecast..."
 - Lead with the most important finding.
 - Use bullet points or numbered lists for multi-part answers.
+- For financial data with 3 or more metrics or periods (e.g. DPU by year, gearing over time, NPI by segment, valuation comps), use a markdown pipe table — never bullet points. Format: | Column | Column | with a |---|---| separator row on the second line.
 - For time-series comparisons, present data chronologically.
 - If sources conflict, state both versions and note the discrepancy.
 - If sources lack sufficient information, say so explicitly rather than inferring.

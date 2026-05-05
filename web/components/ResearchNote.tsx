@@ -9,7 +9,7 @@ interface Props {
 }
 
 // Light-weight markdown-ish renderer: bullets, numbered lists, paragraphs,
-// bold (**...**), and inline citations like [1] or [2,3].
+// bold (**...**), markdown tables, and inline citations like [1] or [2,3].
 export default function ResearchNote({ text, onCiteClick }: Props) {
   const blocks = useMemo(() => splitBlocks(text), [text]);
 
@@ -38,17 +38,88 @@ export default function ResearchNote({ text, onCiteClick }: Props) {
           const Tag = (b.level === 2 ? "h2" : "h3") as "h2" | "h3";
           return <Tag key={i}>{renderInline(b.text, onCiteClick)}</Tag>;
         }
+        if (b.kind === "table") {
+          return (
+            <div key={i} style={{ overflowX: "auto", marginBottom: "12px" }}>
+              <table className="memo-table">
+                <thead>
+                  <tr>
+                    {b.headers.map((h, j) => (
+                      <th key={j} style={colAlign(h, b.alignments[j])}>
+                        {renderInline(h, onCiteClick)}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {b.rows.map((row, j) => (
+                    <tr key={j}>
+                      {row.map((cell, k) => (
+                        <td
+                          key={k}
+                          className="tnum"
+                          style={colAlign(cell, b.alignments[k])}
+                        >
+                          {renderInline(cell, onCiteClick)}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          );
+        }
         return <p key={i}>{renderInline(b.text, onCiteClick)}</p>;
       })}
     </div>
   );
 }
 
+// Returns inline style for a table cell based on the column alignment hint.
+// Numeric-looking content defaults to right-align; plain text stays left.
+function colAlign(
+  content: string,
+  alignment: "left" | "right" | "center"
+): React.CSSProperties {
+  if (alignment === "right") return { textAlign: "right" };
+  if (alignment === "center") return { textAlign: "center" };
+  // Auto-detect: if the cell content looks numeric, right-align it.
+  const stripped = content.replace(/[$%,SGD\s]/g, "").replace(/\[.*?\]/g, "").trim();
+  if (stripped !== "" && !isNaN(Number(stripped))) return { textAlign: "right" };
+  return { textAlign: "left" };
+}
+
 type Block =
   | { kind: "p"; text: string }
   | { kind: "h"; level: 2 | 3; text: string }
   | { kind: "ul"; items: string[] }
-  | { kind: "ol"; items: string[] };
+  | { kind: "ol"; items: string[] }
+  | { kind: "table"; headers: string[]; rows: string[][]; alignments: ("left" | "right" | "center")[] };
+
+// Parse a pipe-delimited markdown table row into cell strings.
+function parseTableRow(line: string): string[] {
+  return line
+    .replace(/^\|/, "")   // strip leading |
+    .replace(/\|$/, "")   // strip trailing |
+    .split("|")
+    .map(c => c.trim());
+}
+
+// Detect alignment from a separator row cell like `---`, `:---`, `---:`, `:---:`.
+function parseSepAlignment(cell: string): "left" | "right" | "center" {
+  const c = cell.trim();
+  const left = c.startsWith(":");
+  const right = c.endsWith(":");
+  if (left && right) return "center";
+  if (right) return "right";
+  return "left";
+}
+
+// Returns true if a table row is a separator row (all cells are dashes/colons).
+function isSeparatorRow(cells: string[]): boolean {
+  return cells.length > 0 && cells.every(c => /^:?-+:?$/.test(c.trim()));
+}
 
 function splitBlocks(text: string): Block[] {
   const lines = text.split("\n");
@@ -56,6 +127,7 @@ function splitBlocks(text: string): Block[] {
   let buf: string[] = [];
   let listItems: string[] = [];
   let listKind: "ul" | "ol" | null = null;
+  let tableLines: string[] = [];
 
   const flushPara = () => {
     if (buf.length) {
@@ -70,9 +142,45 @@ function splitBlocks(text: string): Block[] {
       listKind = null;
     }
   };
+  const flushTable = () => {
+    if (!tableLines.length) return;
+    const allRows = tableLines.map(parseTableRow);
+    // Find the separator row index
+    const sepIdx = allRows.findIndex(isSeparatorRow);
+    if (sepIdx === -1 || sepIdx === 0) {
+      // Not a valid table — fall back to treating lines as paragraphs
+      buf.push(...tableLines);
+      tableLines = [];
+      return;
+    }
+    const headers = allRows[sepIdx - 1];
+    const alignments = allRows[sepIdx].map(parseSepAlignment);
+    const rows = allRows.slice(sepIdx + 1).filter(r => r.length > 0);
+    if (rows.length === 0) {
+      buf.push(...tableLines);
+      tableLines = [];
+      return;
+    }
+    out.push({ kind: "table", headers, rows, alignments });
+    tableLines = [];
+  };
 
   for (const raw of lines) {
     const line = raw.trim();
+
+    // Table line: starts with a pipe character
+    if (line.startsWith("|")) {
+      flushPara();
+      flushList();
+      tableLines.push(line);
+      continue;
+    }
+
+    // Any non-pipe line terminates a table block in progress
+    if (tableLines.length > 0) {
+      flushTable();
+    }
+
     if (!line) {
       flushPara();
       flushList();
@@ -109,6 +217,8 @@ function splitBlocks(text: string): Block[] {
     flushList();
     buf.push(line);
   }
+  // Flush anything remaining
+  if (tableLines.length > 0) flushTable();
   flushPara();
   flushList();
   return out;
