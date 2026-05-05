@@ -1,12 +1,15 @@
+# Pipeline-only dependencies. Used locally by ingest.py / rag.py to (re)build
+# index/faiss.index + index/metadata.json and to export the index for the web/
+# Vercel project. The web/ front-end has its own deps in web/package.json.
+#
+# DO NOT add streamlit / gspread / google-auth here — those are Streamlit-era
+# and Vercel framework auto-detect treats them as a Python project signal.
 anthropic>=0.40.0
-gspread>=6.0.0
-google-auth>=2.0.0
 openai>=1.30.0
 faiss-cpu>=1.8.0
 pymupdf>=1.24.0
 pdfplumber>=0.11.0
 langchain-text-splitters>=0.2.0
-streamlit>=1.35.0
 numpy>=1.26.0
 python-dotenv>=1.0.0
 rank-bm25>=0.2.0

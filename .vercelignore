@@ -1,0 +1,34 @@
+# Vercel deploys the web/ folder. Hide everything else from the build context
+# so framework auto-detection cannot misidentify the project as Python.
+# (See _orikai_playbooks/vercel-deployment-troubleshooting.md, Failure 1.)
+
+# Python pipeline (only used locally to rebuild the index)
+config.py
+ingest.py
+rag.py
+requirements.txt
+
+# Pipeline data artifacts (already exported into web/data/ for the API route)
+data/
+index/
+manifest.numbers
+
+# Streamlit-era leftovers
+_streamlit_archive/
+.streamlit/
+
+# Python compiled artifacts
+__pycache__/
+**/__pycache__/
+*.pyc
+*.pyo
+
+# Pipeline secrets
+.env
+.env.local
+
+# Editor / OS junk
+.DS_Store
+**/.DS_Store
+.vscode/
+.idea/

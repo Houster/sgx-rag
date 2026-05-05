@@ -1,5 +1,51 @@
+# Pipeline secrets
 .env
+.env.local
+
+# Streamlit-era leftovers (kept under _streamlit_archive/ in case we want to revert)
 .streamlit/secrets.toml
+_streamlit_archive/
+
+# Python build artifacts — anchored to the project root so they don't shadow
+# web/lib/, web/dist/, etc. (per Vercel deployment playbook, Failure 2)
 __pycache__/
 *.pyc
+*.pyo
+
+/build/
+/develop-eggs/
+/dist/
+/downloads/
+/eggs/
+/.eggs/
+/lib/
+/lib64/
+/parts/
+/sdist/
+/var/
+/wheels/
+/share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtualenvs (anchored)
+/env/
+/venv/
+/ENV/
+/env.bak/
+/venv.bak/
+
+# OS / editor junk
 .DS_Store
+**/.DS_Store
+.vscode/
+.idea/
+
+# Pipeline outputs that we don't want in git
+# (FAISS index lives under index/ — keep it out of git, it's >24MB)
+/index/faiss.index
+/index/metadata.json
+
+# Vercel
+.vercel
