@@ -1,21 +1,28 @@
-# Vercel deploys the web/ folder. Hide everything else from the build context
-# so framework auto-detection cannot misidentify the project as Python.
+# Vercel deploys the web/ folder. Hide the Python pipeline at the parent level
+# so framework auto-detection can't misidentify the project as Python.
 # (See _orikai_playbooks/vercel-deployment-troubleshooting.md, Failure 1.)
+#
+# CRITICAL: every directory pattern below is anchored with a leading "/" so it
+# only matches at the repo root. Unanchored patterns (e.g. `data/`) would also
+# match `web/data/`, hiding the JSON-imported chunks file from the build —
+# which is exactly the bug that broke deploy #4 (cf. playbook Failure 2 for
+# the .gitignore variant of the same trap).
 
 # Python pipeline (only used locally to rebuild the index)
-config.py
-ingest.py
-rag.py
-requirements.txt
+/config.py
+/ingest.py
+/rag.py
+/requirements.txt
 
-# Pipeline data artifacts (already exported into web/data/ for the API route)
-data/
-index/
-manifest.numbers
+# Pipeline data artifacts at the parent level. The Vercel-side data lives in
+# web/data/ + web/public/ and must NOT be hidden by these patterns.
+/data/
+/index/
+/manifest.numbers
 
 # Streamlit-era leftovers
-_streamlit_archive/
-.streamlit/
+/_streamlit_archive/
+/.streamlit/
 
 # Python compiled artifacts
 __pycache__/
@@ -24,8 +31,8 @@ __pycache__/
 *.pyo
 
 # Pipeline secrets
-.env
-.env.local
+/.env
+/.env.local
 
 # Editor / OS junk
 .DS_Store
