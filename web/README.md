@@ -93,7 +93,7 @@ web/
 ├── scripts/
 │   └── export-index.py          FAISS → chunks.json + embeddings.bin
 ├── styles/globals.css
-├── next.config.js               outputFileTracingIncludes routes data/ into the chat function
+├── next.config.js               (data/* is JSON-imported, embeddings.bin is in public/ — no tracer config needed)
 ├── package.json
 ├── tailwind.config.js
 ├── tsconfig.json

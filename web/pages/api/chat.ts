@@ -214,8 +214,10 @@ export default async function handler(
     const [qVec, hVec] = await embed(openai, [query, hyde || query]);
     const blended = blendEmbeddings(qVec, hVec);
 
-    // 3. Hybrid retrieval (dense + BM25 + RRF)
-    const sources = retrieve(query, blended, {
+    // 3. Hybrid retrieval (dense + BM25 + RRF). `retrieve` is async because
+    //    it loads the embeddings binary from public/ on cold start; later
+    //    calls are served from module-memory cache.
+    const sources = await retrieve(query, blended, {
       docTypeFilter: docTypeFilter && docTypeFilter.length ? docTypeFilter : null,
     });
 

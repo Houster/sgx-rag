@@ -3,9 +3,13 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { getCorpusStats } from "../../lib/retriever";
 
-export default function handler(_req: NextApiRequest, res: NextApiResponse) {
+export default async function handler(
+  _req: NextApiRequest,
+  res: NextApiResponse
+) {
   try {
-    return res.status(200).json(getCorpusStats());
+    const stats = await getCorpusStats();
+    return res.status(200).json(stats);
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);
     return res.status(500).json({ error: msg });

@@ -3,29 +3,25 @@ const nextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
 
-  // Force Vercel to bundle web/data/{chunks.json,embeddings.bin} into the
-  // serverless function for every API route that imports lib/retriever.ts.
+  // Data file strategy (after three failed deploys with outputFileTracingIncludes
+  // and one stalled build with inline 24 MB asset/inline):
   //
-  // Two non-obvious things had to be right at the same time:
+  //   - web/data/chunks.json   → imported via ES module in lib/retriever.ts.
+  //                              Webpack inlines JSON natively; the chunk text
+  //                              ships inside the function bundle (NOT publicly
+  //                              downloadable), and Next's tracer never has to
+  //                              know about it.
   //
-  //   1. Placement: in Next 14.x the option lives under `experimental.*`. It
-  //      was only promoted to a top-level key in Next 15. At the top level on
-  //      14.x, Next emits `Unrecognized key(s) in object` and silently drops
-  //      the whole include block.
+  //   - web/public/embeddings.bin → served as a static asset on Vercel's CDN.
+  //                                 The retriever fetches it once on cold start
+  //                                 (~24 MB, sub-second on the same region) and
+  //                                 caches the Float32Array view in module
+  //                                 memory for the rest of the function's life.
+  //                                 Embeddings are derivative of the public
+  //                                 chunks, so the public URL isn't a leak.
   //
-  //   2. Key format: Next runs picomatch against the *normalized route path*
-  //      (e.g. "/api/chat"), NOT against the source-file form
-  //      ("pages/api/chat"). The latter looks plausible but matches nothing,
-  //      so the route gets traced without the data files.
-  //
-  // Verified against node_modules/next/dist/build/collect-build-traces.js
-  // (lines 510–540) for next@14.2.5: keys are picomatch globs against
-  // `route = normalizePagePath(entryName)`, which strips the `pages/` prefix.
-  experimental: {
-    outputFileTracingIncludes: {
-      "/api/chat":  ["./data/chunks.json", "./data/embeddings.bin"],
-      "/api/stats": ["./data/chunks.json", "./data/embeddings.bin"],
-    },
-  },
+  // No webpack rules, no experimental tracer config, nothing exotic. The two
+  // mechanisms in use here (JSON import, public/ static assets) are the
+  // foundational primitives every Next.js project relies on.
 };
 module.exports = nextConfig;

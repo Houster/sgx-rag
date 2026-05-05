@@ -24,12 +24,17 @@ export const DOC_TYPE_LABELS: Record<DocType, string> = {
 // One row per chunk in chunks.json (the metadata side of the index).
 // Embeddings are NOT stored here — they live in embeddings.bin as a flat
 // Float32Array of shape (N, EMBEDDING_DIM).
+//
+// Note: `doc_type` and `year` come straight from the Python pipeline as
+// strings, so we keep them as strings here. `doc_type` is narrowed to the
+// known enum values via `as DocType` at use sites (the pipeline only emits
+// those four values).
 export interface Chunk {
   doc_type: DocType;
   company: string;
   source: string; // human-readable source label, e.g. "FY2023 Annual Report"
   date: string;   // YYYY-MM-DD
-  year: number;
+  year: string;   // "2025" — string in the source JSON, kept as-is
   page: number;
   text: string;
 }
@@ -41,7 +46,7 @@ export interface SourceRef {
   company: string;
   source: string;
   date: string;
-  year: number;
+  year: string;
   page: number;
   excerpt: string;   // short snippet shown in the sources expander
   score: number;     // RRF score (higher = more relevant)

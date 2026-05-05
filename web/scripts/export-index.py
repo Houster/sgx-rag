@@ -7,8 +7,14 @@ Inputs (relative to web/scripts/):
     ../../index/metadata.json    — list of chunk dicts (text + doc_type + ...)
 
 Outputs (relative to web/scripts/):
-    ../data/chunks.json          — chunk metadata only (no embeddings)
-    ../data/embeddings.bin       — flat Float32 row-major (N × EMBEDDING_DIM)
+    ../data/chunks.json          — chunk metadata, ES-imported by lib/retriever.ts
+                                   (webpack inlines this into the function bundle —
+                                   chunk text is NOT publicly downloadable)
+    ../public/embeddings.bin     — flat Float32 row-major (N × EMBEDDING_DIM),
+                                   served as a static asset by Vercel's CDN and
+                                   fetched once per cold start by lib/retriever.ts
+                                   (embeddings are derivative of the public chunks,
+                                   so the public URL isn't an information leak)
 
 The raw .bin format is a bit-for-bit copy of the FAISS reconstructed vectors,
 so the TS retriever doesn't need any decoding logic — just `new Float32Array(buf)`.
@@ -37,12 +43,13 @@ except ImportError as e:
 HERE = Path(__file__).parent
 PROJECT_ROOT = HERE.parent.parent              # 002-KDC-RAG/
 INDEX_DIR = PROJECT_ROOT / "index"
-DATA_DIR = HERE.parent / "data"                # 002-KDC-RAG/web/data/
+DATA_DIR = HERE.parent / "data"                # 002-KDC-RAG/web/data/    (bundled into function via JSON import)
+PUBLIC_DIR = HERE.parent / "public"            # 002-KDC-RAG/web/public/  (served as a static asset)
 
 INDEX_PATH = INDEX_DIR / "faiss.index"
 METADATA_PATH = INDEX_DIR / "metadata.json"
 CHUNKS_OUT = DATA_DIR / "chunks.json"
-EMBEDDINGS_OUT = DATA_DIR / "embeddings.bin"
+EMBEDDINGS_OUT = PUBLIC_DIR / "embeddings.bin"
 
 EXPECTED_DIM = 3072  # text-embedding-3-large
 
@@ -55,6 +62,7 @@ def main() -> None:
         )
 
     DATA_DIR.mkdir(parents=True, exist_ok=True)
+    PUBLIC_DIR.mkdir(parents=True, exist_ok=True)
 
     # ── Load FAISS + metadata
     index = faiss.read_index(str(INDEX_PATH))
