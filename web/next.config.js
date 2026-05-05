@@ -3,20 +3,23 @@ const nextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
 
-  // Force Vercel to bundle web/data/{chunks.json,embeddings.bin} into the
-  // serverless function for every API route that touches the retriever.
+  // Force Vercel to bundle web/data/{chunks.json,embeddings.bin} into every
+  // serverless function that imports lib/retriever.ts. Each route is traced
+  // independently — an entry for /api/chat does NOT cascade to /api/stats —
+  // so list both.
   //
-  // We list the files explicitly (instead of `./data/**`) because:
-  //   - `./data/**` is interpreted differently across Next versions and has
-  //     historically failed to pick up binary files;
-  //   - we know exactly what we need, so explicitness avoids the tracing
-  //     guesswork entirely.
+  // Version note: in Next 14.x this option is `experimental.outputFileTracing
+  // Includes`. It was promoted to a top-level config key only in Next 15.
+  // Putting it at the top level on 14.x triggers `Unrecognized key(s) in
+  // object` and the whole include block is silently ignored.
   //
-  // Both keys are required: Next traces each route separately, so an entry
-  // for /api/chat does NOT cascade to /api/stats.
-  outputFileTracingIncludes: {
-    "/api/chat":  ["./data/chunks.json", "./data/embeddings.bin"],
-    "/api/stats": ["./data/chunks.json", "./data/embeddings.bin"],
+  // Keys are page identifiers (the source file path is the most reliable form
+  // across versions). Values are globs relative to the project root.
+  experimental: {
+    outputFileTracingIncludes: {
+      "pages/api/chat":  ["./data/chunks.json", "./data/embeddings.bin"],
+      "pages/api/stats": ["./data/chunks.json", "./data/embeddings.bin"],
+    },
   },
 };
 module.exports = nextConfig;
