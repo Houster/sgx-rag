@@ -22,22 +22,50 @@ let _chunks: Chunk[] | null = null;
 let _embeddings: Float32Array | null = null; // (N, EMBEDDING_DIM) row-major
 let _bm25: BM25Index | null = null;
 
-function dataPath(filename: string): string {
-  // process.cwd() is the project root (web/) at runtime on Vercel.
-  return path.join(process.cwd(), "data", filename);
+// Where the data files might land at runtime depends on the deployer:
+//   - `vercel dev` / `next start` locally    → web/data/<file>
+//   - Vercel serverless (Pages Router)       → /var/task/data/<file>      (cwd === /var/task)
+//   - Vercel serverless (alt bundle layout)  → relative to __dirname when the bundler relocates the route
+//
+// We try each candidate in turn; first hit wins. The list is also surfaced in
+// the "files missing" error so a deploy failure is debuggable from the API
+// response alone.
+function candidatePaths(filename: string): string[] {
+  const here = __dirname;
+  return [
+    path.join(process.cwd(), "data", filename),
+    path.join(here, "..", "data", filename),
+    path.join(here, "..", "..", "data", filename),
+    path.join(here, "..", "..", "..", "data", filename),
+    path.join(here, "..", "..", "..", "..", "data", filename),
+  ];
+}
+
+function resolveDataPath(filename: string): string | null {
+  for (const p of candidatePaths(filename)) {
+    if (fs.existsSync(p)) return p;
+  }
+  return null;
 }
 
 function ensureLoaded(): void {
   if (_chunks && _embeddings && _bm25) return;
 
-  const chunksPath = dataPath("chunks.json");
-  const embPath = dataPath("embeddings.bin");
+  const chunksPath = resolveDataPath("chunks.json");
+  const embPath = resolveDataPath("embeddings.bin");
 
-  if (!fs.existsSync(chunksPath) || !fs.existsSync(embPath)) {
+  if (!chunksPath || !embPath) {
+    const tried = [
+      ...candidatePaths("chunks.json"),
+      ...candidatePaths("embeddings.bin"),
+    ];
     throw new Error(
-      `Index files missing under web/data/. Run web/scripts/export-index.py ` +
-      `first to convert ../index/faiss.index + ../index/metadata.json into ` +
-      `chunks.json + embeddings.bin.`
+      "Index files missing on the deployed function. " +
+      "If this is the first deploy after running web/scripts/export-index.py, " +
+      "make sure web/data/chunks.json and web/data/embeddings.bin are committed " +
+      "to git AND that next.config.js outputFileTracingIncludes lists them for " +
+      "the route that is failing (e.g. '/api/chat' and '/api/stats'). " +
+      `Tried: ${tried.join(" | ")}`
     );
   }
 
